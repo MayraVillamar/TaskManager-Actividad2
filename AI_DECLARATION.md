@@ -18,3 +18,4 @@ Se utilizó la herramienta **Gemini (Google)** en las siguientes etapas del proy
 - **Formateo de Fechas:** El código sugerido por la IA generaba fechas en formato ISO completo (`YYYY-MM-DDTHH:mm:ss`), por lo que se ajustó manualmente mediante una función auxiliar para mostrar la fecha en formato local amigable (`DD/MM/YYYY`).
 - **Validación de Formularios:** Se agregó una capa extra de validación manual para evitar el registro de espacios en blanco en los campos de texto (`title.trim() === ''`).
 - **Mapeo de Datos de la API:** La API externa devuelve los datos con la propiedad `completed`, mientras que el esquema interno requiere un objeto extendido con `priority` y `createdAt`. Se ajustó manualmente la función de carga inicial para inyectar estos valores por defecto.
+  

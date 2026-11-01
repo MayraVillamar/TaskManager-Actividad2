@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaskManager - Gestión de Tareas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 text-gray-800 min-h-screen p-4 md:p-8">
+  <div class="max-w-4xl mx-auto space-y-6">
+    <header class="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+      <h1 class="text-3xl font-bold text-indigo-600 flex items-center gap-3">
+        <i class="fa-solid fa-list-check"></i> TaskManager
+      </h1>
+      <p class="text-gray-500 text-sm mt-1">Gestión reactiva de tareas en JavaScript Vanilla</p>
+    </header>
+
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-4" id="dashboard">
+      <div class="bg-white p-4 rounded-xl shadow border border-gray-100">
+        <p class="text-xs font-semibold text-gray-400 uppercase">Total</p>
+        <p id="total-count" class="text-2xl font-bold text-gray-800">0</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow border border-gray-100">
+        <p class="text-xs font-semibold text-amber-500 uppercase">Pendientes</p>
+        <p id="pending-count" class="text-2xl font-bold text-amber-600">0</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow border border-gray-100">
+        <p class="text-xs font-semibold text-emerald-500 uppercase">Completadas</p>
+        <p id="completed-count" class="text-2xl font-bold text-emerald-600">0</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow border border-gray-100">
+        <p class="text-xs font-semibold text-indigo-500 uppercase">Progreso</p>
+        <p id="progress-percent" class="text-2xl font-bold text-indigo-600">0%</p>
+      </div>
+    </section>
+
+    <section class="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+      <form id="task-form" class="space-y-4">
+        <input type="hidden" id="task-id">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Título de la tarea</label>
+          <input type="text" id="task-title" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Ej. Preparar informe de investigación" required>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+            <input type="text" id="task-category" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Estudios, Trabajo..." required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Prioridad</label>
+            <select id="task-priority" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              <option value="Baja">Baja</option>
+              <option value="Media" selected>Media</option>
+              <option value="Alta">Alta</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Fecha Límite</label>
+            <input type="date" id="task-due-date" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none" required>
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 pt-2">
+          <button type="button" id="btn-cancel" class="hidden px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Cancelar</button>
+          <button type="submit" id="btn-save" class="px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium">Guardar Tarea</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="bg-white p-6 rounded-xl shadow-md border border-gray-200 space-y-4">
+      <div class="flex flex-col md:flex-row gap-4 justify-between items-center">
+        <div class="w-full md:w-1/3">
+          <input type="text" id="search-input" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Buscar tarea por título...">
+        </div>
+        <div class="flex flex-wrap gap-2 w-full md:w-auto">
+          <select id="filter-status" class="px-3 py-2 border rounded-lg text-sm bg-gray-50">
+            <option value="todos">Todos los estados</option>
+            <option value="pendientes">Pendientes</option>
+            <option value="completadas">Completadas</option>
+          </select>
+          <select id="sort-by" class="px-3 py-2 border rounded-lg text-sm bg-gray-50">
+            <option value="recent">Más recientes</option>
+            <option value="oldest">Más antiguas</option>
+            <option value="priority">Por Prioridad (Alta-Baja)</option>
+          </select>
+        </div>
+      </div>
+      <div id="task-list" class="space-y-3 pt-2"></div>
+    </section>
+  </div>
+
+  <script>
+    class TaskManager {
+      constructor() {
+        this.tasks = [];
+        this.init();
+      }
+
+      async init() {
+        this.bindEvents();
+        await this.loadTasks();
+        this.render();
+      }
+
+      showNotification(msg, type = 'info') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        const color = type === 'error' ? 'bg-red-500' : type === 'success' ? 'bg-emerald-500' : 'bg-indigo-600';
+        toast.className = `${color} text-white px-4 py-2 rounded-lg shadow-lg text-sm transition-all duration-300 transform translate-y-2`;
+        toast.textContent = msg;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+      }
+
+      async loadTasks() {
+        const localData = localStorage.getItem('tasks_db');
+        if (localData) {
+          try {
+            this.tasks = JSON.parse(localData);
+            return;
+          } catch (e) {
+            this.showNotification('Error leyendo almacenamiento local', 'error');
+          }
+        }
+
+        try {
+          const res = await fetch('https://jsonplaceholder.typicode.com/todos?_limit=5');
+          if (!res.ok) throw new Error('Fallo de red');
+          const raw = await res.json();
+          this.tasks = raw.map(t => ({
+            id: String(t.id),
+            title: t.title,
+            category: 'API Import',
+            priority: t.completed ? 'Baja' : 'Media',
+            dueDate: new Date().toISOString().split('T')[0],
+            completed: t.completed,
+            createdAt: new Date().toISOString()
+          }));
+          this.saveToStorage();
+          this.showNotification('Datos importados de API externa', 'success');
+        } catch (err) {
+          this.showNotification('No se pudo conectar a la API. Trabajando en modo offline.', 'error');
+          this.tasks = [];
+        }
+      }
+
+      saveToStorage() {
+        localStorage.setItem('tasks_db', JSON.stringify(this.tasks));
+        document.dispatchEvent(new CustomEvent('taskManager:stateChanged', { detail: { tasks: this.tasks } }));
+      }
+
+      bindEvents() {
+        document.getElementById('task-form').addEventListener('submit', (e) => this.handleSubmit(e));
+        document.getElementById('search-input').addEventListener('input', () => this.render());
+        document.getElementById('filter-status').addEventListener('change', () => this.render());
+        document.getElementById('sort-by').addEventListener('change', () => this.render());
+        document.getElementById('btn-cancel').addEventListener('click', () => this.resetForm());
+
+        document.addEventListener('taskManager:stateChanged', () => this.updateDashboard());
+      }
+
+      handleSubmit(e) {
+        e.preventDefault();
+        const id = document.getElementById('task-id').value;
+        const title = document.getElementById('task-title').value.trim();
+        const category = document.getElementById('task-category').value.trim();
+        const priority = document.getElementById('task-priority').value;
+        const dueDate = document.getElementById('task-due-date').value;
+
+        if (!title || !category || !dueDate) {
+          this.showNotification('Por favor complete todos los campos requeridos.', 'error');
+          return;
+        }
+
+        if (id) {
+          const index = this.tasks.findIndex(t => t.id === id);
+          if (index !== -1
